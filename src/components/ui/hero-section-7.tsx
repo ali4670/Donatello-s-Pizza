@@ -37,9 +37,15 @@ export function FloatingFoodHero({
       {/* Background */}
       <div className="absolute inset-0 z-0">
         <img
+          src="/PHONE-BG.png"
+          alt=""
+          className="w-full h-full object-cover sm:hidden"
+          aria-hidden="true"
+        />
+        <img
           src="/HERO.png"
           alt=""
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover hidden sm:block"
           aria-hidden="true"
         />
         <div className="absolute inset-0 bg-amethyst-dark/40" />
