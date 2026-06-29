@@ -88,9 +88,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       setIsLoggedIn(!!session);
-      if (session) {
-        await fetchAllData();
-      }
+      await fetchAllData();
     } catch (err) {
       console.error('Session check error:', err);
     } finally {
