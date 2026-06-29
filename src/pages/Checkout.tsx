@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Check, CreditCard, Truck, Clock, Phone, User, MapPin, FileText } from 'lucide-react';
+import { ArrowLeft, Check, CreditCard, Truck, Clock, Phone, User, MapPin, FileText, Tag } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useLang } from '../context/LangContext';
+import { supabase } from '../lib/supabase';
 
 export default function CheckoutPage() {
   const { items, totalPrice, clearCart } = useCart();
@@ -14,9 +15,18 @@ export default function CheckoutPage() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponError, setCouponError] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; type: string; value: number } | null>(null);
 
   const deliveryFee = totalPrice >= 25 ? 0 : 3.99;
-  const grandTotal = totalPrice + deliveryFee;
+  const discount = appliedCoupon
+    ? appliedCoupon.type === 'percentage'
+      ? totalPrice * (appliedCoupon.value / 100)
+      : appliedCoupon.value
+    : 0;
+  const grandTotal = Math.max(0, totalPrice - discount + deliveryFee);
 
   const update = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -36,9 +46,79 @@ export default function CheckoutPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) return;
+    setCouponLoading(true);
+    setCouponError('');
+    const { data, error } = await supabase
+      .from('coupons')
+      .select('*')
+      .eq('code', couponCode.trim().toUpperCase())
+      .eq('active', true)
+      .single();
+    setCouponLoading(false);
+
+    if (error || !data) {
+      setCouponError('Invalid coupon code');
+      setAppliedCoupon(null);
+      return;
+    }
+    if (data.expires_at && new Date(data.expires_at) < new Date()) {
+      setCouponError('This coupon has expired');
+      setAppliedCoupon(null);
+      return;
+    }
+    if (data.max_uses !== null && data.used_count >= data.max_uses) {
+      setCouponError('This coupon has reached its usage limit');
+      setAppliedCoupon(null);
+      return;
+    }
+    if (data.min_order > 0 && totalPrice < data.min_order) {
+      setCouponError(`Minimum order is $${data.min_order.toFixed(2)}`);
+      setAppliedCoupon(null);
+      return;
+    }
+    setAppliedCoupon({ code: data.code, type: data.discount_type, value: data.discount_value });
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode('');
+    setCouponError('');
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
+    await supabase.from('orders').insert({
+      customer_name: form.name,
+      phone: form.phone,
+      alt_phone: form.altPhone,
+      address: form.address,
+      apartment: form.apartment,
+      city: form.city,
+      landmark: form.landmark,
+      delivery_time: form.deliveryTime,
+      payment_method: form.paymentMethod,
+      order_notes: form.notes,
+      items: items.map((item) => ({
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        size: item.size,
+        addons: item.addons,
+        notes: item.notes,
+      })),
+      subtotal: totalPrice,
+      delivery_fee: deliveryFee,
+      discount: discount,
+      coupon_code: appliedCoupon?.code || null,
+      total: grandTotal,
+      status: 'pending',
+    });
+    if (appliedCoupon) {
+      await supabase.rpc('increment_coupon_usage', { coupon_code: appliedCoupon.code });
+    }
     setSubmitted(true);
     clearCart();
   };
@@ -164,6 +244,42 @@ export default function CheckoutPage() {
           <textarea placeholder={t.orderNotesPlaceholder} value={form.notes} onChange={(e) => update('notes', e.target.value)} rows={2} className="w-full bg-amethyst-dark-2/50 border border-amethyst-royal/15 rounded-xl px-4 py-3.5 text-sm text-white placeholder-amethyst-mauve/25 font-inter focus:outline-none focus:border-amethyst-lavender/40 transition-colors resize-none" />
         </section>
 
+        {/* Coupon Code */}
+        <section>
+          <h2 className="text-white font-inter text-xs tracking-[0.2em] uppercase font-semibold mb-4 flex items-center gap-2"><Tag className="w-4 h-4 text-amethyst-lavender" />Coupon Code</h2>
+          {appliedCoupon ? (
+            <div className="flex items-center gap-3 bg-green-600/10 border border-green-500/30 rounded-xl px-4 py-3">
+              <Check className="w-4 h-4 text-green-400 shrink-0" />
+              <span className="text-green-400 font-inter text-sm font-semibold">{appliedCoupon.code}</span>
+              <span className="text-green-400/70 font-inter text-xs">
+                {appliedCoupon.type === 'percentage' ? `${appliedCoupon.value}% OFF` : `$${appliedCoupon.value.toFixed(2)} OFF`}
+              </span>
+              <button onClick={removeCoupon} className="ml-auto text-amethyst-mauve/40 hover:text-red-400 text-xs font-inter transition-colors">Remove</button>
+            </div>
+          ) : (
+            <div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={couponCode}
+                  onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError(''); }}
+                  placeholder="Enter coupon code"
+                  className="flex-1 bg-amethyst-dark-2/50 border border-amethyst-royal/15 rounded-xl px-4 py-3.5 text-sm text-white placeholder-amethyst-mauve/25 font-inter focus:outline-none focus:border-amethyst-lavender/40 transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={handleApplyCoupon}
+                  disabled={couponLoading || !couponCode.trim()}
+                  className="px-5 py-3.5 bg-amethyst-royal hover:bg-amethyst-velvet disabled:opacity-50 text-white text-xs tracking-widest uppercase font-inter rounded-xl transition-all duration-300"
+                >
+                  {couponLoading ? '...' : 'Apply'}
+                </button>
+              </div>
+              {couponError && <p className="text-red-400 text-xs font-inter mt-1.5">{couponError}</p>}
+            </div>
+          )}
+        </section>
+
         {/* Order Summary */}
         <section className="bg-amethyst-dark-2/40 border border-amethyst-royal/15 rounded-2xl p-5 space-y-3">
           <h2 className="text-white font-inter text-xs tracking-[0.2em] uppercase font-semibold mb-2">{t.orderSummary}</h2>
@@ -178,6 +294,9 @@ export default function CheckoutPage() {
           })}
           <div className="pt-3 border-t border-amethyst-royal/10 space-y-2">
             <div className="flex justify-between text-sm font-inter"><span className="text-amethyst-mauve/50">{t.subtotal}</span><span className="text-white">${totalPrice.toFixed(2)}</span></div>
+            {discount > 0 && (
+              <div className="flex justify-between text-sm font-inter"><span className="text-green-400/70">Discount ({appliedCoupon?.code})</span><span className="text-green-400">-${discount.toFixed(2)}</span></div>
+            )}
             <div className="flex justify-between text-sm font-inter"><span className="text-amethyst-mauve/50">{t.delivery}</span><span className={deliveryFee === 0 ? 'text-green-500' : 'text-amethyst-mauve/60'}>{deliveryFee === 0 ? t.free : `$${deliveryFee.toFixed(2)}`}</span></div>
             <div className="flex justify-between items-center pt-3 border-t border-amethyst-royal/10"><span className="text-white font-inter font-semibold">{t.total}</span><span className="text-white font-inter text-2xl font-bold">${grandTotal.toFixed(2)}</span></div>
           </div>

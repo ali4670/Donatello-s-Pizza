@@ -229,7 +229,111 @@ INSERT INTO addons (id, name, price, emoji, category) VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- =============================================
--- 14. CREATE ADMIN USER
+-- 14. ORDERS TABLE
+-- =============================================
+CREATE TABLE IF NOT EXISTS orders (
+  id BIGSERIAL PRIMARY KEY,
+  customer_name TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  alt_phone TEXT,
+  address TEXT NOT NULL,
+  apartment TEXT,
+  city TEXT NOT NULL,
+  landmark TEXT,
+  delivery_time TEXT DEFAULT 'asap',
+  payment_method TEXT DEFAULT 'cash',
+  order_notes TEXT,
+  items JSONB NOT NULL DEFAULT '[]',
+  subtotal NUMERIC(10,2) NOT NULL DEFAULT 0,
+  delivery_fee NUMERIC(10,2) NOT NULL DEFAULT 0,
+  total NUMERIC(10,2) NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public read orders') THEN
+    CREATE POLICY "Public read orders" ON orders FOR SELECT USING (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public insert orders') THEN
+    CREATE POLICY "Public insert orders" ON orders FOR INSERT WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Auth update orders') THEN
+    CREATE POLICY "Auth update orders" ON orders FOR UPDATE TO authenticated USING (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Auth delete orders') THEN
+    CREATE POLICY "Auth delete orders" ON orders FOR DELETE TO authenticated USING (true);
+  END IF;
+END $$;
+
+CREATE TRIGGER orders_updated_at
+  BEFORE UPDATE ON orders
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at();
+
+-- =============================================
+-- 15. COUPONS TABLE
+-- =============================================
+CREATE TABLE IF NOT EXISTS coupons (
+  id TEXT PRIMARY KEY,
+  code TEXT NOT NULL UNIQUE,
+  discount_type TEXT NOT NULL DEFAULT 'percentage',
+  discount_value NUMERIC(10,2) NOT NULL DEFAULT 0,
+  min_order NUMERIC(10,2) DEFAULT 0,
+  max_uses INTEGER DEFAULT NULL,
+  used_count INTEGER DEFAULT 0,
+  active BOOLEAN DEFAULT true,
+  expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE coupons ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public read coupons') THEN
+    CREATE POLICY "Public read coupons" ON coupons FOR SELECT USING (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Auth insert coupons') THEN
+    CREATE POLICY "Auth insert coupons" ON coupons FOR INSERT TO authenticated WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Auth update coupons') THEN
+    CREATE POLICY "Auth update coupons" ON coupons FOR UPDATE TO authenticated USING (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Auth delete coupons') THEN
+    CREATE POLICY "Auth delete coupons" ON coupons FOR DELETE TO authenticated USING (true);
+  END IF;
+  -- Allow public to increment used_count (for coupon redemption)
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public update coupons') THEN
+    CREATE POLICY "Public update coupons" ON coupons FOR UPDATE USING (true);
+  END IF;
+END $$;
+
+CREATE TRIGGER coupons_updated_at
+  BEFORE UPDATE ON coupons
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at();
+
+CREATE OR REPLACE FUNCTION increment_coupon_usage(coupon_code TEXT)
+RETURNS VOID AS $$
+BEGIN
+  UPDATE coupons SET used_count = used_count + 1 WHERE code = coupon_code;
+END;
+$$ LANGUAGE plpgsql;
+
+-- =============================================
+-- 16. ADD COUPON COLUMN TO ORDERS
+-- =============================================
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_code TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount NUMERIC(10,2) DEFAULT 0;
+
+-- =============================================
+-- 17. CREATE ADMIN USER
 -- Run this in Supabase SQL Editor after creating
 -- the auth user via dashboard or auth API
 -- =============================================

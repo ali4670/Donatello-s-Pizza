@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { CartProvider } from './context/CartContext';
 import { LangProvider, useLang } from './context/LangContext';
 import { AdminProvider } from './context/AdminContext';
+import { OrdersAuthProvider } from './pages/OrdersLogin';
 import Layout from './components/Layout';
 import AdminLayout from './components/AdminLayout';
 import Home from './pages/Home';
@@ -18,7 +19,12 @@ import AdminProducts from './pages/admin/Products';
 import AdminSizes from './pages/admin/Sizes';
 import AdminAddons from './pages/admin/Addons';
 import AdminCategories from './pages/admin/Categories';
+import AdminCoupons from './pages/admin/Coupons';
+import AdminOrders from './pages/admin/Orders';
+import AdminSalary from './pages/admin/Salary';
 import ProductPage from './pages/ProductPage';
+import OrdersLogin from './pages/OrdersLogin';
+import OrdersView from './pages/OrdersView';
 
 function AppRoutes() {
   const { dir } = useLang();
@@ -52,7 +58,16 @@ function AppRoutes() {
             <Route path="/admin/sizes" element={<AdminSizes />} />
             <Route path="/admin/addons" element={<AdminAddons />} />
             <Route path="/admin/categories" element={<AdminCategories />} />
+            <Route path="/admin/coupons" element={<AdminCoupons />} />
+            <Route path="/admin/orders" element={<AdminOrders />} />
+            <Route path="/admin/salary" element={<AdminSalary />} />
           </Route>
+        </Route>
+
+        {/* Orders Routes */}
+        <Route element={<Layout />}>
+          <Route path="/orders/login" element={<OrdersAuthProvider><OrdersLogin /></OrdersAuthProvider>} />
+          <Route path="/orders" element={<OrdersAuthProvider><OrdersView /></OrdersAuthProvider>} />
         </Route>
       </Routes>
     </BrowserRouter>

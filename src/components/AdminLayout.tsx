@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation, Outlet, Navigate } from 'react-router-dom';
-import { Pizza, Ruler, Plus, LayoutDashboard, LogOut, Menu, X, ChevronRight, Tag } from 'lucide-react';
+import { Pizza, Ruler, Plus, LayoutDashboard, LogOut, Menu, X, ChevronRight, Tag, Package, DollarSign, Ticket } from 'lucide-react';
 import { useAdmin } from '@/context/AdminContext';
 
 const sidebarLinks = [
@@ -9,6 +9,9 @@ const sidebarLinks = [
   { icon: Tag, label: 'Categories', to: '/admin/categories' },
   { icon: Ruler, label: 'Sizes', to: '/admin/sizes' },
   { icon: Plus, label: 'Add-ons', to: '/admin/addons' },
+  { icon: Ticket, label: 'Coupons', to: '/admin/coupons' },
+  { icon: Package, label: 'Orders', to: '/admin/orders' },
+  { icon: DollarSign, label: 'Salary', to: '/admin/salary' },
 ];
 
 export default function AdminLayout() {

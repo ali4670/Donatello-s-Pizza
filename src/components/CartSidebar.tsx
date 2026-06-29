@@ -24,7 +24,7 @@ export default function CartSidebar() {
         <div className="flex items-center justify-between px-6 py-5 border-b border-amethyst-royal/20">
           <div className="flex items-center gap-3">
             <ShoppingBag className="w-5 h-5 text-amethyst-lavender" />
-            <h2 className="font-podium text-white text-lg uppercase tracking-wider">Your Order</h2>
+            <h2 className="font-podium text-white text-lg uppercase tracking-wider">Cart</h2>
           </div>
           <button onClick={() => setIsOpen(false)} className="text-amethyst-mauve/60 hover:text-amethyst-mauve transition-colors">
             <X className="w-6 h-6" />

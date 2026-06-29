@@ -91,8 +91,19 @@ export default function Navbar() {
           </Link>
         </div>
 
-        {/* Mobile Right Section - only lang toggle */}
+        {/* Mobile Right Section - cart + lang toggle */}
         <div className="flex md:hidden items-center gap-2">
+          <Link
+            to="/order"
+            className="relative p-2 text-amethyst-mauve/70 hover:text-amethyst-mauve transition-colors"
+          >
+            <ShoppingCart className="w-5 h-5" />
+            {totalItems > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-amethyst-royal text-white text-[8px] font-bold rounded-full flex items-center justify-center">
+                {totalItems}
+              </span>
+            )}
+          </Link>
           <button
             onClick={toggleLang}
             className="p-2 text-amethyst-mauve/70 hover:text-amethyst-mauve transition-colors"
@@ -207,29 +218,11 @@ export default function Navbar() {
           ))}
 
           <Link
-            to="/order"
-            onClick={() => setMenuOpen(false)}
-            className="mt-4 font-podium text-4xl sm:text-5xl text-white uppercase py-3 transition-all duration-500 hover:text-amethyst-mauve flex items-center gap-3"
-            style={{
-              transitionDelay: menuOpen ? `${(navLinks.length + 1) * 80 + 100}ms` : '0ms',
-              opacity: menuOpen ? 1 : 0,
-              transform: menuOpen ? 'translateY(0)' : 'translateY(20px)',
-            }}
-          >
-            {t.yourOrder}
-            {totalItems > 0 && (
-              <span className="w-7 h-7 bg-amethyst-royal text-white text-xs font-bold rounded-full flex items-center justify-center font-inter">
-                {totalItems}
-              </span>
-            )}
-          </Link>
-
-          <Link
             to="/menu"
             onClick={() => setMenuOpen(false)}
             className="mt-6 inline-flex items-center gap-2 border border-amethyst-royal/50 px-6 py-3 text-xs tracking-widest uppercase font-inter text-white transition-all duration-500 rounded-bubble hover:bg-amethyst-royal/15"
             style={{
-              transitionDelay: menuOpen ? `${(navLinks.length + 2) * 80 + 100}ms` : '0ms',
+              transitionDelay: menuOpen ? `${(navLinks.length + 1) * 80 + 100}ms` : '0ms',
               opacity: menuOpen ? 1 : 0,
               transform: menuOpen ? 'translateY(0)' : 'translateY(20px)',
             }}
